@@ -20,4 +20,6 @@ func main() {
 	}
 	fmt.Printf("The number of ants is: %d\n", colony.Ants)
 	colony.DisplayColony()
+	fmt.Println(colony.Start)
+	fmt.Println(colony.End)
 }

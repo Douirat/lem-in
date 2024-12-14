@@ -10,6 +10,9 @@ import (
 	"github.com/Douirat/lem-in/data"
 )
 
+// Declare a global variable to hold the size of the graph:
+var SIZE int
+
 // Declare a structure to represent the room:
 type Room struct {
 	Name       string
@@ -22,6 +25,65 @@ type Colony struct {
 	Ants       int
 	Start, End *Room
 	Farm       map[string]*Room
+}
+
+// Declare a graph to ease the extraction of paths:
+type Graph struct {
+	Farm map[string][]string
+}
+
+// Instantiate a new graph:
+func NewGraph() *Graph {
+graph := new(Graph)
+graph.Farm = make(map[string][]string)
+return graph
+}
+
+// declare a queue to help in the graph traversal:
+// A queue is used to help the level by level traversal following the FIFO principle.
+type Queue struct {
+	Rooms       [][]string
+	Front, Rear int
+}
+
+// Initialize the queue:
+func NewQueue() *Queue {
+	queue := new(Queue)
+	queue.Rooms = make([][]string, SIZE)
+	queue.Front = -1
+	queue.Rear = -1
+	return queue
+}
+
+// Add a new room to the queue:
+func (queue *Queue) Enqueue(path []string) {
+	if queue.Front == -1 {
+		queue.Front = 0
+		queue.Rear = 0
+	} else {
+		queue.Rear++
+	}
+	queue.Rooms[queue.Rear] = path
+}
+
+// Is the queue empty:
+func (queue *Queue) IsEmpty() bool {
+	return queue.Front == -1
+}
+
+// Remove a new room from the queue:
+func (queue *Queue) Dequeue() []string {
+	if queue.IsEmpty() {
+		return ""
+	}
+	path := queue.Rooms[queue.Front]
+	if queue.Front == queue.Rear {
+		queue.Front = -1
+		queue.Rear = -1
+	} else {
+		queue.Front++
+	}
+	return path
 }
 
 // Instantiate a colony:
@@ -62,6 +124,7 @@ func (colony *Colony) AddRoom(str string) (*Room, error) {
 		return nil, err
 	}
 	colony.Farm[room.Name] = room
+	SIZE++
 	return room, nil
 }
 
@@ -94,6 +157,69 @@ func (colony *Colony) AddTunnel(str string) error {
 	roomSrc.Next = colony.Farm[data[1]].Next
 	colony.Farm[data[1]].Next = roomSrc
 	return nil
+}
+
+// Find the shortest path;
+// BFS function to find all shortest paths between two cities
+func (colony *Colony) FindShortestPath() {
+
+	//  A queue in the BFS, each element is a room and a path to it;
+	// Why a Queue for BFS?
+	// he queue in BFS is essential for the breadth-first traversal of the graph.
+	// The idea behind BFS is to explore all nodes at the current "level" (or "distance")
+	// before moving on to the next level. This ensures that we explore rooms
+	// in increasing order of their distance from the start room. The queue 
+	// helps by storing rooms in the order they are visited, while also allowing us to expand 
+	// paths correctly.
+	queue := NewQueue()
+
+	// Start with the path containing just the start room
+	queue.Enqueue(colony.Start.Name)
+
+	// Map to track the shortest distnce to each room
+	// In the algorithm, the distances map tracks the shortest number 
+	// of steps (or edges) from the start room to every other room (or node).
+	// The goal is to find the shortest path from the starting room to the 
+	// destination room, which means finding the minimum number of edges
+	// you need to traverse between two rooms.
+	distances := make(map[string]int)
+	distances[colony.Start.Name] = 0 // When the algorithm starts, we set the distance to the start room as 0 because we're already there.
+
+	// The pathsToRoom map is designed to keep track of all possible shortest paths from 
+	// the starting room to each other room. Each entry in the map stores a list of paths
+	// leading to a particular room. Since we are using Breadth-First Search (BFS),
+	// the idea is that BFS explores the shortest paths first, and we can collect
+	// all the shortest paths as we go along.
+	// Map to store all paths leading to each room
+	pathsToRoom := make(map[string][][]string)
+	pathsToRoom[colony.Start.Name] = [][]string{{colony.Start.Name}} // Start room has one path: itself
+
+	// BFS: Exploring cities one by one:
+	for !queue.IsEmpty() {
+		// Dequeue the first element in the queue (FIFO):
+		currentRoom := queue.Dequeue()
+
+		temp := colony.Farm[currentRoom]
+		// Explore all the nieghbors of the current room:
+		for  temp != nil {
+			// Calculate distance to the neighbor via the current room
+			newDistance := distances[currentRoom] + 1
+					// If visiting the neighbor for the first time, record its distance
+					if _, visited := distances[temp.Name]; !visited {
+						distances[temp.Name] = newDistance
+						// Add this new room to the queue for further exploration
+						queue.Rooms = append(queue.Rooms, temp.Name)
+						// Initialize paths to this neighbor with the current path
+						pathsToRoom[temp.Name] = [][]string{{temp.Name}}
+
+					} else if distances[temp.Name] == newDistance {
+						// If we reach the neighbor with the same shortest distance, add the path
+						pathsToRoom[temp.Name] = append(pathsToRoom[temp.Name], append([]string{}, append(pathsToRoom[][], neighbor)...))
+					}
+			temp = temp.Next
+		}
+
+	}
 }
 
 // Formulating the colny graph based on the input extracted from the file:
