@@ -2,8 +2,9 @@ package main
 
 import (
 	"fmt"
-	"github.com/Douirat/lem-in/logic"
 	"os"
+
+	"github.com/Douirat/lem-in/logic"
 )
 
 func main() {
@@ -19,7 +20,9 @@ func main() {
 		return
 	}
 	fmt.Printf("The number of ants is: %d\n", colony.Ants)
-	colony.DisplayColony()
-	fmt.Println(colony.Start)
-	fmt.Println(colony.End)
+	// colony.DisplayColony()
+	graph := colony.CreateFarm()
+	graph.Display()
+	pathsToRoom := graph.FindShortestPath(colony.Start.Name, colony.End.Name)
+	fmt.Println(pathsToRoom)
 }

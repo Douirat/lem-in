@@ -32,60 +32,6 @@ type Graph struct {
 	Farm map[string][]string
 }
 
-// Instantiate a new graph:
-func NewGraph() *Graph {
-graph := new(Graph)
-graph.Farm = make(map[string][]string)
-return graph
-}
-
-// declare a queue to help in the graph traversal:
-// A queue is used to help the level by level traversal following the FIFO principle.
-type Queue struct {
-	Rooms       [][]string
-	Front, Rear int
-}
-
-// Initialize the queue:
-func NewQueue() *Queue {
-	queue := new(Queue)
-	queue.Rooms = make([][]string, SIZE)
-	queue.Front = -1
-	queue.Rear = -1
-	return queue
-}
-
-// Add a new room to the queue:
-func (queue *Queue) Enqueue(path []string) {
-	if queue.Front == -1 {
-		queue.Front = 0
-		queue.Rear = 0
-	} else {
-		queue.Rear++
-	}
-	queue.Rooms[queue.Rear] = path
-}
-
-// Is the queue empty:
-func (queue *Queue) IsEmpty() bool {
-	return queue.Front == -1
-}
-
-// Remove a new room from the queue:
-func (queue *Queue) Dequeue() []string {
-	if queue.IsEmpty() {
-		return ""
-	}
-	path := queue.Rooms[queue.Front]
-	if queue.Front == queue.Rear {
-		queue.Front = -1
-		queue.Rear = -1
-	} else {
-		queue.Front++
-	}
-	return path
-}
-
 // Instantiate a colony:
 func NewColony() *Colony {
 	colony := new(Colony)
@@ -159,67 +105,108 @@ func (colony *Colony) AddTunnel(str string) error {
 	return nil
 }
 
+// Create a graph with only room names to ease the shortest paths extraction:
+func (colony *Colony) CreateFarm() *Graph {
+	graph := new(Graph)
+	graph.Farm = make(map[string][]string)
+	for name, room := range colony.Farm {
+		if _, exist := graph.Farm[name]; !exist {
+			graph.Farm[name] = []string{}
+		}
+		temp := room.Next
+		for temp != nil {
+			graph.Farm[name] = append(graph.Farm[name], temp.Name)
+			temp = temp.Next
+		}
+	}
+	return graph
+}
+
+// Display the graph:
+func (graph *Graph) Display() {
+	for key, values := range graph.Farm {
+		fmt.Printf("We are visiting the room: %s\n", key)
+		for _, value := range values {
+			fmt.Printf("%s <----> %s ", key, value)
+		}
+		fmt.Printf("\n")
+	}
+}
+
 // Find the shortest path;
 // BFS function to find all shortest paths between two cities
-func (colony *Colony) FindShortestPath() {
+func (graph *Graph) FindShortestPath(start, end string) [][]string {
 
-	//  A queue in the BFS, each element is a room and a path to it;
+	//  A queue in the BFS, each element is a room and a paths to it;
 	// Why a Queue for BFS?
-	// he queue in BFS is essential for the breadth-first traversal of the graph.
+	// The queue in BFS is essential for the breadth-first-traversal of the graph.
 	// The idea behind BFS is to explore all nodes at the current "level" (or "distance")
 	// before moving on to the next level. This ensures that we explore rooms
-	// in increasing order of their distance from the start room. The queue 
-	// helps by storing rooms in the order they are visited, while also allowing us to expand 
+	// in increasing order of their distance from the start room. The queue
+	// helps by storing rooms in the order they are visited, while also allowing us to expand
 	// paths correctly.
-	queue := NewQueue()
+	// queue := NewQueue()
 
 	// Start with the path containing just the start room
-	queue.Enqueue(colony.Start.Name)
+	queue := [][]string{{start}}
 
 	// Map to track the shortest distnce to each room
-	// In the algorithm, the distances map tracks the shortest number 
+	// In the algorithm, the distances map tracks the shortest number
 	// of steps (or edges) from the start room to every other room (or node).
-	// The goal is to find the shortest path from the starting room to the 
+	// The goal is to find the shortest path from the starting room to the
 	// destination room, which means finding the minimum number of edges
 	// you need to traverse between two rooms.
 	distances := make(map[string]int)
-	distances[colony.Start.Name] = 0 // When the algorithm starts, we set the distance to the start room as 0 because we're already there.
+	distances[start] = 0 // When the algorithm starts, we set the distance to the start room as 0 because we're already there.
 
-	// The pathsToRoom map is designed to keep track of all possible shortest paths from 
+	// The pathsToRoom map is designed to keep track of all possible shortest paths from
 	// the starting room to each other room. Each entry in the map stores a list of paths
 	// leading to a particular room. Since we are using Breadth-First Search (BFS),
 	// the idea is that BFS explores the shortest paths first, and we can collect
 	// all the shortest paths as we go along.
 	// Map to store all paths leading to each room
 	pathsToRoom := make(map[string][][]string)
-	pathsToRoom[colony.Start.Name] = [][]string{{colony.Start.Name}} // Start room has one path: itself
+	pathsToRoom[start] = [][]string{{start}} // Start room has one path: itself
 
 	// BFS: Exploring cities one by one:
-	for !queue.IsEmpty() {
+	for len(queue) > 0 {
 		// Dequeue the first element in the queue (FIFO):
-		currentRoom := queue.Dequeue()
+		currentPath := queue[0]
+		queue = queue[1:]
 
-		temp := colony.Farm[currentRoom]
-		// Explore all the nieghbors of the current room:
-		for  temp != nil {
-			// Calculate distance to the neighbor via the current room
+		// Current room is the last room in the current path:
+		currentRoom := currentPath[len(currentPath)-1]
+
+		// Explore all neighbors of the current room:
+		for _, neighbor := range graph.Farm[currentRoom] {
+			// Calculate the distance to the neighbor via the current city:
 			newDistance := distances[currentRoom] + 1
-					// If visiting the neighbor for the first time, record its distance
-					if _, visited := distances[temp.Name]; !visited {
-						distances[temp.Name] = newDistance
-						// Add this new room to the queue for further exploration
-						queue.Rooms = append(queue.Rooms, temp.Name)
-						// Initialize paths to this neighbor with the current path
-						pathsToRoom[temp.Name] = [][]string{{temp.Name}}
 
-					} else if distances[temp.Name] == newDistance {
-						// If we reach the neighbor with the same shortest distance, add the path
-						pathsToRoom[temp.Name] = append(pathsToRoom[temp.Name], append([]string{}, append(pathsToRoom[][], neighbor)...))
-					}
-			temp = temp.Next
+			// If visiting the neighbor for the first time record its distance:
+			if _, visited := distances[neighbor]; !visited {
+				distances[neighbor] = newDistance
+
+				// Add this new path to the queue for further exploration
+				queue = append(queue, append([]string{}, append(currentPath, neighbor)...))
+				// ====> Create a copy of currentPath
+				// newPath := append([]string{}, currentPath...)
+				// // Add the neighbor to the new path
+				// newPath = append(newPath, neighbor)
+				// // Append the new path to the queue
+				// queue = append(queue, newPath)
+
+				// Initialize paths to this neighbor with the current path
+				pathsToRoom[neighbor] = [][]string{append([]string{}, append(currentPath, neighbor)...)}
+			} else if distances[neighbor] == newDistance {
+				// If we reach the neighbor with the same shortest distance, add the path
+				pathsToRoom[neighbor] = append(pathsToRoom[neighbor], append([]string{}, append(currentPath, neighbor)...))
+			}
 		}
-
 	}
+	fmt.Println(pathsToRoom)
+	fmt.Println(distances)
+	// Return all shortest paths to the destination city
+	return pathsToRoom[end]
 }
 
 // Formulating the colny graph based on the input extracted from the file:
@@ -256,7 +243,7 @@ func (colony *Colony) RockAndRoll(fileName string) error {
 				switch key {
 				case "start":
 					// Handle the start pattern
-					fmt.Println("Start found:", str)
+					// fmt.Println("Start found:", str)
 					started = true
 					continue
 				case "room":
@@ -285,7 +272,7 @@ func (colony *Colony) RockAndRoll(fileName string) error {
 				case "end":
 					// Handle the end pattern
 					ended = true
-					fmt.Println("End found:", str)
+					// fmt.Println("End found:", str)
 					continue
 				case "tunnel":
 					// if !end {
