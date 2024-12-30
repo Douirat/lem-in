@@ -133,10 +133,66 @@ func (graph *Graph) Display() {
 	}
 }
 
+// Extract all possible paths to the destination:
+func (graph *Graph) FindAllPathsToDestination(start, destination string) [][]string {
+	// Initialize the queue for BFS; each element is a path (slice of strings).
+	// Start with a single path containing only the starting room.
+	queue := [][]string{{start}}
+
+	// This slice will store all the paths leading to the destination.
+	var allPaths [][]string
+
+	// Perform BFS while there are paths left to process in the queue.
+	for len(queue) > 0 {
+		// Dequeue the first path in the queue (FIFO behavior).
+		// This represents the path currently being explored.
+		currentPath := queue[0]
+		queue = queue[1:] // Remove the path from the queue.
+
+		// The current room being explored is the last room in the current path.
+		currentroom := currentPath[len(currentPath)-1]
+
+		// If the current room matches the destination, this path is valid.
+		if currentroom == destination {
+			// Make a copy of the path and add it to the list of all paths.
+			allPaths = append(allPaths, append([]string{}, currentPath...))
+			// Skip further exploration for this path since we reached the destination.
+			continue
+		}
+
+		// Explore all neighboring cities of the current room.
+		for _, neighbor := range graph.Farm[currentroom] {
+			// To prevent revisiting cities in the same path (avoiding cycles),
+			// check if the neighbor is already in the current path.
+			if !contains(currentPath, neighbor) {
+				// Create a new path by extending the current path with the neighbor.
+				// Use `append([]string{}, currentPath...)` to create a copy of the path.
+				newPath := append([]string{}, currentPath...)
+				newPath = append(newPath, neighbor)
+				// Add this new path to the queue for further exploration.
+				queue = append(queue, newPath)
+			}
+		}
+	}
+
+	// After processing all paths, return the list of all valid paths to the destination.
+	return allPaths
+}
+
+// Helper function to check if a room is already in the current path.
+// This ensures that a room is not revisited in the same path, avoiding cycles.
+func contains(path []string, room string) bool {
+	for _, c := range path {
+		if c == room {
+			return true
+		}
+	}
+	return false
+}
+
 // Find the shortest path;
 // BFS function to find all shortest paths between two cities
 func (graph *Graph) FindShortestPath(start, end string) [][]string {
-
 	//  A queue in the BFS, each element is a room and a paths to it;
 	// Why a Queue for BFS?
 	// The queue in BFS is essential for the breadth-first-traversal of the graph.
@@ -179,7 +235,7 @@ func (graph *Graph) FindShortestPath(start, end string) [][]string {
 
 		// Explore all neighbors of the current room:
 		for _, neighbor := range graph.Farm[currentRoom] {
-			// Calculate the distance to the neighbor via the current city:
+			// Calculate the distance to the neighbor via the current room:
 			newDistance := distances[currentRoom] + 1
 
 			// If visiting the neighbor for the first time record its distance:
@@ -187,13 +243,13 @@ func (graph *Graph) FindShortestPath(start, end string) [][]string {
 				distances[neighbor] = newDistance
 
 				// Add this new path to the queue for further exploration
-				queue = append(queue, append([]string{}, append(currentPath, neighbor)...))
+				// queue = append(queue, append([]string{}, append(currentPath, neighbor)...))
 				// ====> Create a copy of currentPath
-				// newPath := append([]string{}, currentPath...)
+				newPath := append([]string{}, currentPath...)
 				// // Add the neighbor to the new path
-				// newPath = append(newPath, neighbor)
+				newPath = append(newPath, neighbor)
 				// // Append the new path to the queue
-				// queue = append(queue, newPath)
+				queue = append(queue, newPath)
 
 				// Initialize paths to this neighbor with the current path
 				pathsToRoom[neighbor] = [][]string{append([]string{}, append(currentPath, neighbor)...)}
@@ -205,7 +261,7 @@ func (graph *Graph) FindShortestPath(start, end string) [][]string {
 	}
 	fmt.Println(pathsToRoom)
 	fmt.Println(distances)
-	// Return all shortest paths to the destination city
+	// Return all shortest paths to the destination room
 	return pathsToRoom[end]
 }
 

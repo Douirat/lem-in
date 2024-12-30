@@ -24,5 +24,7 @@ func main() {
 	graph := colony.CreateFarm()
 	graph.Display()
 	pathsToRoom := graph.FindShortestPath(colony.Start.Name, colony.End.Name)
+	allPaths := graph.FindAllPathsToDestination(colony.Start.Name, colony.End.Name)
+	fmt.Println(allPaths)
 	fmt.Println(pathsToRoom)
 }
